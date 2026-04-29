@@ -1,5 +1,6 @@
 package com.radiance.mixins.vulkan_render_integration;
 
+import com.radiance.client.texture.AuxiliaryTextures;
 import java.util.Map;
 import java.util.Map.Entry;
 import net.minecraft.client.texture.atlas.AtlasSource.SpriteRegions;
@@ -13,7 +14,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(DirectoryAtlasSource.class)
@@ -38,7 +38,7 @@ public class DirectoryAtlasSourceMixins {
 
             Identifier identifier2 = resourceFinder.toResourceId(identifier)
                 .withPrefixedPath(this.prefix);
-            if (identifier2.getPath().endsWith("_s") || identifier2.getPath().endsWith("_n")) {
+            if (AuxiliaryTextures.shouldSkipAtlasSprite(resourceManager, identifier2)) {
                 continue;
             }
             regions.add(identifier2, resource);

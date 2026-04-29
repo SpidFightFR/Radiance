@@ -16,7 +16,7 @@ import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 
-public class ModuleAttributeScreen extends Screen {
+public class ShaderPackSettingsScreen extends Screen {
 
     private static final int OK_BORDER = 0xFF34D058;
     private static final int BAD_BORDER = 0xFFE5534B;
@@ -25,21 +25,18 @@ public class ModuleAttributeScreen extends Screen {
     private static final int WIDGET_WIDTH = 160;
     private static final int VEC3_COMPONENT_WIDTH = 52;
     private static final int VEC3_GAP = 2;
-
     private static final int HEADER_HEIGHT = 32;
-    private static final String MODULE_ATTRIBUTE_SCREEN_NO_ATTRIBUTES = "module_attribute_screen.no_attributes";
+    private static final String TITLE = "shader_pack_settings_screen.title";
+    private static final String NO_ATTRIBUTES = "module_attribute_screen.no_attributes";
 
     private final Screen parent;
-    private final Module module;
-
     private final List<Row> rows = new ArrayList<>();
-
+    private Module module;
     private int scrollY = 0;
 
-    public ModuleAttributeScreen(Screen parent, Module module) {
-        super(module.translateText(module.name));
+    public ShaderPackSettingsScreen(Screen parent) {
+        super(Text.translatable(TITLE));
         this.parent = parent;
-        this.module = module;
     }
 
     @Override
@@ -50,18 +47,15 @@ public class ModuleAttributeScreen extends Screen {
                 .build());
 
         rows.clear();
-
-        List<AttributeConfig> list = module.attributeConfigs;
-        if (list == null || list.isEmpty()) {
+        module = Pipeline.getRayTracingModule();
+        List<AttributeConfig> list = Pipeline.getRayTracingShaderPackAttributes();
+        if (module == null || list.isEmpty()) {
             return;
         }
 
         for (AttributeConfig cfg : list) {
-            if (Pipeline.isRayTracingShaderPackAttribute(module, cfg)) {
-                continue;
-            }
-            List<ClickableWidget> ws = AttributeWidgetUtil.buildWidgets(module, cfg, textRenderer, WIDGET_WIDTH,
-                VEC3_COMPONENT_WIDTH);
+            List<ClickableWidget> ws = AttributeWidgetUtil.buildWidgets(module, cfg, textRenderer,
+                WIDGET_WIDTH, VEC3_COMPONENT_WIDTH);
             for (ClickableWidget w : ws) {
                 addDrawableChild(w);
             }
@@ -71,8 +65,10 @@ public class ModuleAttributeScreen extends Screen {
 
     @Override
     public void close() {
-        Pipeline.getModuleAttributes(module);
-        Pipeline.savePipeline();
+        if (module != null) {
+            Pipeline.getModuleAttributes(module);
+            Pipeline.savePipeline();
+        }
         MinecraftClient.getInstance().setScreen(parent);
     }
 
@@ -80,10 +76,12 @@ public class ModuleAttributeScreen extends Screen {
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         super.render(context, mouseX, mouseY, delta);
 
-        context.drawTextWithShadow(textRenderer, module.translateText(module.name), 10, HEADER_HEIGHT + 8, 0xFFEAEAEA);
+        context.drawTextWithShadow(textRenderer, Text.translatable(TITLE), 10, HEADER_HEIGHT + 8,
+            0xFFEAEAEA);
 
         if (rows.isEmpty()) {
-            context.drawTextWithShadow(textRenderer, MODULE_ATTRIBUTE_SCREEN_NO_ATTRIBUTES, 10, 60, 0xFFB0B0B0);
+            context.drawTextWithShadow(textRenderer, Text.translatable(NO_ATTRIBUTES), 10, 60,
+                0xFFB0B0B0);
             return;
         }
 
@@ -93,15 +91,13 @@ public class ModuleAttributeScreen extends Screen {
         for (int i = 0; i < rows.size(); i++) {
             Row row = rows.get(i);
             int y = baseY + i * rowH;
-
             boolean visible = y >= (HEADER_HEIGHT + 18) && y <= (this.height - 24);
             if (visible) {
-                context.drawTextWithShadow(textRenderer, module.translateText(row.cfg.name), ROW_LEFT, y + 6,
-                    0xFFD0D0D0);
+                context.drawTextWithShadow(textRenderer, module.translateText(row.cfg.name), ROW_LEFT,
+                    y + 6, 0xFFD0D0D0);
             }
 
             layoutRowWidgets(row, y);
-
             String type = row.cfg.type == null ? "" : row.cfg.type.toLowerCase(Locale.ROOT);
             boolean doBorder = AttributeWidgetUtil.shouldValidateBorder(type);
 
@@ -114,7 +110,6 @@ public class ModuleAttributeScreen extends Screen {
                 }
 
                 boolean ok = true;
-
                 if (type.equals("vec3")) {
                     if (w instanceof TextFieldWidget tf) {
                         ok = AttributeWidgetUtil.isStrictFloat(tf.getText());
@@ -131,26 +126,32 @@ public class ModuleAttributeScreen extends Screen {
 
                 if (w instanceof TextFieldWidget tf) {
                     int c = ok ? OK_BORDER : BAD_BORDER;
-                    AttributeWidgetUtil.drawBorder(context, tf.getX(), tf.getY(), tf.getWidth(), tf.getHeight(), c);
+                    AttributeWidgetUtil.drawBorder(context, tf.getX(), tf.getY(), tf.getWidth(),
+                        tf.getHeight(), c);
                 }
             }
         }
     }
 
     private void layoutRowWidgets(Row row, int y) {
-        int widgetWidth = AttributeWidgetUtil.totalWidgetWidth(row.widgets, WIDGET_WIDTH, VEC3_COMPONENT_WIDTH,
-            VEC3_GAP);
+        int widgetWidth = AttributeWidgetUtil.totalWidgetWidth(row.widgets, WIDGET_WIDTH,
+            VEC3_COMPONENT_WIDTH, VEC3_GAP);
         int x = this.width - ROW_RIGHT - widgetWidth;
-        AttributeWidgetUtil.layoutWidgets(row.widgets, x, y, WIDGET_WIDTH, VEC3_COMPONENT_WIDTH, VEC3_GAP);
+        AttributeWidgetUtil.layoutWidgets(row.widgets, x, y, WIDGET_WIDTH, VEC3_COMPONENT_WIDTH,
+            VEC3_GAP);
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount,
+        double verticalAmount) {
+        if (rows.isEmpty()) {
+            return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+        }
         int rowH = 22;
-        int contentH = 60 + rows.size() * rowH + 20;
-        int minScroll = Math.min(0, this.height - contentH);
-
-        scrollY += (int) (verticalAmount * 10);
+        int contentH = rows.size() * rowH;
+        int viewportH = this.height - (HEADER_HEIGHT + 56);
+        int minScroll = Math.min(0, viewportH - contentH);
+        scrollY += (int) (verticalAmount * 18);
         if (scrollY > 0) {
             scrollY = 0;
         }
@@ -160,14 +161,6 @@ public class ModuleAttributeScreen extends Screen {
         return true;
     }
 
-    private static class Row {
-
-        private final AttributeConfig cfg;
-        private final List<ClickableWidget> widgets;
-
-        private Row(AttributeConfig cfg, List<ClickableWidget> widgets) {
-            this.cfg = cfg;
-            this.widgets = widgets;
-        }
+    private record Row(AttributeConfig cfg, List<ClickableWidget> widgets) {
     }
 }

@@ -44,6 +44,13 @@ public class ChunkBuilderBuiltChunkMixins implements IChunkBuilderBuiltChunkExt 
         ChunkProxy.enqueueRebuild(self);
     }
 
+    @Inject(method = "setSectionPos(J)V", at = @At(value = "TAIL"))
+    private void syncNativeChunkSlot(long sectionPos, CallbackInfo ci) {
+        ChunkBuilder.BuiltChunk self = (ChunkBuilder.BuiltChunk) (Object) this;
+        ChunkProxy.relocateSingle(self.index, self.getOrigin().getX(), self.getOrigin().getY(),
+            self.getOrigin().getZ());
+    }
+
     @Inject(method = "delete()V",
         at = @At(value = "INVOKE",
             target = "Lnet/minecraft/client/render/chunk/ChunkBuilder$BuiltChunk;clear()V",

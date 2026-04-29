@@ -159,6 +159,22 @@ public class VideoOptionsScreenMixins extends GameOptionsScreenMixins {
                     Options.setChunkBuildingTotalBatches(value, true);
                 });
 
+        SimpleOption<Integer>
+            chunkBuildingThreads =
+            new SimpleOption<>(Options.CHUNK_BUILDING_THREADS_KEY, SimpleOption.emptyTooltip(),
+                (optionText, value) -> getGenericValueText(optionText,
+                    Text.literal(Integer.toString(value))),
+                new SimpleOption.ValidatingIntSliderCallbacks(1,
+                    Options.getMaxChunkBuildingThreads()),
+                Codec.intRange(1, Options.getMaxChunkBuildingThreads()),
+                Options.chunkBuildingThreads,
+                value -> Options.setChunkBuildingThreads(value, true));
+
+        SimpleOption<Boolean> collectChunkEmission = SimpleOption.ofBoolean(
+            Options.COLLECT_CHUNK_EMISSION_KEY,
+            Options.collectChunkEmission,
+            value -> Options.setCollectChunkEmission(value, true));
+
         SimpleOption<Boolean> pipelineSettings = new SimpleOption<>(Options.PIPELINE_SETUP_KEY,
             SimpleOption.emptyTooltip(),
             (optionText, value) -> optionText,
@@ -209,6 +225,8 @@ public class VideoOptionsScreenMixins extends GameOptionsScreenMixins {
             new CategoryVideoOptionEntry(Text.translatable(Options.CATEGORY_TERRAIN), body));
         this.body.addSingleOptionEntry(chunkBuildingBatchSize);
         this.body.addSingleOptionEntry(chunkBuildingTotalBatches);
+        this.body.addSingleOptionEntry(chunkBuildingThreads);
+        this.body.addSingleOptionEntry(collectChunkEmission);
 
         this.body.addEntry(
             new CategoryVideoOptionEntry(Text.translatable(Options.CATEGORY_PIPELINE), body));

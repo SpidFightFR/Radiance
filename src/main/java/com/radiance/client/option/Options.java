@@ -1,6 +1,9 @@
 package com.radiance.client.option;
 
 import com.radiance.client.RadianceClient;
+import com.radiance.client.pipeline.Pipeline;
+import com.radiance.client.proxy.vulkan.TextureProxy;
+import com.radiance.client.proxy.world.ChunkProxy;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -37,6 +40,9 @@ public class Options {
     public static final String RAY_BOUNCES_KEY = "options.video.ray_bounces";
     public static final String CHUNK_BUILDING_BATCH_SIZE_KEY = "options.video.chunk_building_batch_size";
     public static final String CHUNK_BUILDING_TOTAL_BATCHES_KEY = "options.video.chunk_building_total_batches";
+    public static final String CHUNK_BUILDING_THREADS_KEY = "options.video.chunk_building_threads";
+    public static final String COLLECT_CHUNK_EMISSION_KEY = "options.video.collect_chunk_emission";
+    public static final String SHADER_PACK_SETUP_KEY = "options.video.shader_pack_setup";
     public static final String PIPELINE_SETUP_KEY = "options.video.pipeline_setup";
 
     public static final String UPSCALER_TYPE_NATIVE = "options.video.upscaler_type.native";
@@ -60,6 +66,23 @@ public class Options {
     public static int rayBounces = 4;
     public static int chunkBuildingBatchSize = 12;
     public static int chunkBuildingTotalBatches = 12;
+    public static int chunkBuildingThreads = getDefaultChunkBuildingThreads();
+    public static boolean collectChunkEmission = false;
+
+    public static int getMaxChunkBuildingThreads() {
+        int availableProcessors = Runtime.getRuntime().availableProcessors();
+        boolean is64Bits = System.getProperty("os.arch", "").contains("64");
+        return Math.max(1, is64Bits ? availableProcessors : Math.min(availableProcessors, 4));
+    }
+
+    public static int clampChunkBuildingThreads(int chunkBuildingThreads) {
+        return Math.max(1, Math.min(chunkBuildingThreads, getMaxChunkBuildingThreads()));
+    }
+
+    private static int getDefaultChunkBuildingThreads() {
+        return clampChunkBuildingThreads(
+            Math.max(1, (int) (Runtime.getRuntime().availableProcessors() * 0.6)));
+    }
 
     public static void readOptions() {
         Path path = RadianceClient.radianceDir.resolve(OPTION_PROPERTIES);
@@ -85,6 +108,12 @@ public class Options {
             setChunkBuildingTotalBatches(
                 Integer.parseInt(props.getProperty("chunkBuildingTotalBatches",
                     String.valueOf(chunkBuildingTotalBatches))), false);
+            setChunkBuildingThreads(
+                Integer.parseInt(props.getProperty("chunkBuildingThreads",
+                    String.valueOf(chunkBuildingThreads))), false);
+            setCollectChunkEmission(Boolean.parseBoolean(props.getProperty("collectChunkEmission",
+                    String.valueOf(collectChunkEmission))),
+                false);
 
             overwriteConfig();
 //            System.out.println("Successfully read options: " + path);
@@ -106,6 +135,8 @@ public class Options {
         props.setProperty("rayBounces", String.valueOf(rayBounces));
         props.setProperty("chunkBuildingBatchSize", String.valueOf(chunkBuildingBatchSize));
         props.setProperty("chunkBuildingTotalBatches", String.valueOf(chunkBuildingTotalBatches));
+        props.setProperty("chunkBuildingThreads", String.valueOf(chunkBuildingThreads));
+        props.setProperty("collectChunkEmission", String.valueOf(collectChunkEmission));
 
         try {
             Files.createDirectories(path.getParent());
@@ -168,6 +199,35 @@ public class Options {
     public static void setChunkBuildingTotalBatches(int chunkBuildingTotalBatches, boolean write) {
         Options.chunkBuildingTotalBatches = chunkBuildingTotalBatches;
         nativeSetChunkBuildingTotalBatches(chunkBuildingTotalBatches, write);
+        if (write) {
+            overwriteConfig();
+        }
+    }
+
+    public static void setChunkBuildingThreads(int chunkBuildingThreads, boolean write) {
+        Options.chunkBuildingThreads = clampChunkBuildingThreads(chunkBuildingThreads);
+        if (write) {
+            overwriteConfig();
+        }
+    }
+
+    public native static void nativeSetCollectChunkEmission(boolean collectChunkEmission,
+        boolean write);
+
+    public static void setCollectChunkEmission(boolean collectChunkEmission, boolean write) {
+        boolean changed = Options.collectChunkEmission != collectChunkEmission;
+        Options.collectChunkEmission = collectChunkEmission;
+        nativeSetCollectChunkEmission(collectChunkEmission, write);
+
+        if (changed) {
+            if (collectChunkEmission) {
+                TextureProxy.flushEmissionTiles();
+                ChunkProxy.rebuildAll();
+            } else if (write) {
+                Pipeline.ensureSelectedShaderPackAvailable();
+            }
+        }
+
         if (write) {
             overwriteConfig();
         }

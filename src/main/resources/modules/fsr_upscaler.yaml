@@ -8,11 +8,17 @@ inputImageConfigs:
     format: "R16G16_SFLOAT"
   - name: "first_hit_depth"
     format: "R16_SFLOAT"
+  - name: "normal_roughness"
+    format: "R16G16B16A16_SFLOAT"
 outputImageConfigs:
   - name: "upscaled_radiance"
     format: "R16G16B16A16_SFLOAT"
   - name: "upscaled_first_hit_depth"
     format: "R16_SFLOAT"
+  - name: "upscaled_motion_vector"
+    format: "R16G16_SFLOAT"
+  - name: "upscaled_normal_roughness"
+    format: "R16G16B16A16_SFLOAT"
 attributeConfigs:
   - name: "render_pipeline.module.fsr_upscaler.attribute.enable"
     type: "bool"

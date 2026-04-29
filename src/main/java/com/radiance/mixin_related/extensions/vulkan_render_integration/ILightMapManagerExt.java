@@ -4,6 +4,8 @@ import org.joml.Vector3f;
 
 public interface ILightMapManagerExt {
 
+    int radiance$getTextureId();
+
     float radiance$getAmbientLightFactor();
 
     float radiance$getSkyFactor();

@@ -44,6 +44,14 @@ public class PBRVertexConsumer implements VertexConsumer {
     private static final int ALPHA_MODE_OPAQUE = 0;
     private static final int ALPHA_MODE_CUTOUT = 1;
     private static final int ALPHA_MODE_TRANSPARENT = 2;
+    private static final int POST_TEXT_MODE_BACKGROUND = 1;
+    private static final int POST_TEXT_MODE_INTENSITY = 2;
+    private static final int POST_TEXT_MODE_RGBA = 3;
+    private static final int POST_TEXT_MODE_BACKGROUND_SEE_THROUGH = 4;
+    private static final int POST_TEXT_MODE_INTENSITY_SEE_THROUGH = 5;
+    private static final int POST_TEXT_MODE_RGBA_SEE_THROUGH = 6;
+    private static final int POST_TEXT_MODE_INTENSITY_POLYGON_OFFSET = 7;
+    private static final int POST_TEXT_MODE_RGBA_POLYGON_OFFSET = 8;
 
     private final BufferAllocator allocator;
     private final VertexFormat format;
@@ -115,6 +123,11 @@ public class PBRVertexConsumer implements VertexConsumer {
             return ALPHA_MODE_OPAQUE;
         }
 
+        int postTextMode = getPostTextMode(multiPhase.name);
+        if (postTextMode != ALPHA_MODE_OPAQUE) {
+            return postTextMode;
+        }
+
         if (multiPhase.name.contains("solid")) {
             return ALPHA_MODE_OPAQUE;
         }
@@ -128,6 +141,20 @@ public class PBRVertexConsumer implements VertexConsumer {
         }
 
         return ALPHA_MODE_TRANSPARENT;
+    }
+
+    private static int getPostTextMode(String layerName) {
+        return switch (layerName) {
+            case "text_background" -> POST_TEXT_MODE_BACKGROUND;
+            case "text_intensity" -> POST_TEXT_MODE_INTENSITY;
+            case "text" -> POST_TEXT_MODE_RGBA;
+            case "text_background_see_through" -> POST_TEXT_MODE_BACKGROUND_SEE_THROUGH;
+            case "text_intensity_see_through" -> POST_TEXT_MODE_INTENSITY_SEE_THROUGH;
+            case "text_see_through" -> POST_TEXT_MODE_RGBA_SEE_THROUGH;
+            case "text_intensity_polygon_offset" -> POST_TEXT_MODE_INTENSITY_POLYGON_OFFSET;
+            case "text_polygon_offset" -> POST_TEXT_MODE_RGBA_POLYGON_OFFSET;
+            default -> ALPHA_MODE_OPAQUE;
+        };
     }
 
     public VertexFormat getFormat() {

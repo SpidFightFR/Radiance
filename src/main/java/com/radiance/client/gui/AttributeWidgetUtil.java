@@ -1,5 +1,6 @@
 package com.radiance.client.gui;
 
+import com.radiance.client.pipeline.Module;
 import com.radiance.client.pipeline.config.AttributeConfig;
 
 import java.util.List;
@@ -82,13 +83,13 @@ final class AttributeWidgetUtil {
         return singleWidth;
     }
 
-    static List<ClickableWidget> buildWidgets(AttributeConfig cfg, TextRenderer textRenderer,
+    static List<ClickableWidget> buildWidgets(Module module, AttributeConfig cfg, TextRenderer textRenderer,
         int width,
         int vec3ComponentWidth) {
         String type = cfg.type == null ? "" : cfg.type.toLowerCase(Locale.ROOT);
 
         if (type.startsWith("enum:")) {
-            return List.of(buildEnumWidget(cfg, cfg.type.substring(5), width));
+            return List.of(buildEnumWidget(module, cfg, cfg.type.substring(5), width));
         }
 
         if (type.startsWith("int_range:")) {
@@ -100,7 +101,7 @@ final class AttributeWidgetUtil {
         }
 
         return switch (type) {
-            case "bool" -> List.of(buildBoolWidget(cfg, width));
+            case "bool" -> List.of(buildBoolWidget(module, cfg, width));
             case "int" -> List.of(buildIntWidget(cfg, textRenderer, width));
             case "float" -> List.of(buildFloatWidget(cfg, textRenderer, width));
             case "string" -> List.of(buildStringWidget(cfg, textRenderer, width));
@@ -109,17 +110,17 @@ final class AttributeWidgetUtil {
         };
     }
 
-    private static ClickableWidget buildBoolWidget(AttributeConfig cfg, int width) {
+    private static ClickableWidget buildBoolWidget(Module module, AttributeConfig cfg, int width) {
         boolean b = "render_pipeline.true".equalsIgnoreCase(cfg.value);
         return ButtonWidget.builder(
-            Text.translatable(b ? "render_pipeline.true" : "render_pipeline.false"), btn -> {
+            module.translateText(b ? "render_pipeline.true" : "render_pipeline.false"), btn -> {
                 boolean nv = !"render_pipeline.true".equalsIgnoreCase(cfg.value);
                 cfg.value = nv ? "render_pipeline.true" : "render_pipeline.false";
-                btn.setMessage(Text.translatable(cfg.value));
+                btn.setMessage(module.translateText(cfg.value));
             }).dimensions(0, 0, width, 20).build();
     }
 
-    private static ClickableWidget buildEnumWidget(AttributeConfig cfg, String raw, int width) {
+    private static ClickableWidget buildEnumWidget(Module module, AttributeConfig cfg, String raw, int width) {
         String[] values = raw.isEmpty() ? new String[]{"<empty>"} : raw.split("-");
         int idx = 0;
         if (cfg.value != null) {
@@ -134,10 +135,10 @@ final class AttributeWidgetUtil {
         }
 
         int[] index = new int[]{idx};
-        return ButtonWidget.builder(Text.translatable(values[index[0]]), btn -> {
+        return ButtonWidget.builder(module.translateText(values[index[0]]), btn -> {
             index[0] = (index[0] + 1) % values.length;
             cfg.value = values[index[0]];
-            btn.setMessage(Text.translatable(cfg.value));
+            btn.setMessage(module.translateText(cfg.value));
         }).dimensions(0, 0, width, 20).build();
     }
 

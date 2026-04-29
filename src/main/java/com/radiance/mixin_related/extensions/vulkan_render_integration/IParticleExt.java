@@ -7,4 +7,8 @@ public interface IParticleExt {
     double radiance$getY();
 
     double radiance$getZ();
+
+    String radiance$getContentName();
+
+    void radiance$setContentName(String contentName);
 }

@@ -46,8 +46,8 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.BlockBreakingInfo;
 import net.minecraft.util.Pair;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.ColorHelper;
+import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 import net.minecraft.util.math.Vec3d;
@@ -247,25 +247,18 @@ public abstract class WorldRendererMixins {
             .getGlId();
         int endPortalTextureID = textureManager.getTexture(
             EndPortalBlockEntityRenderer.PORTAL_TEXTURE).getGlId();
+        ILightMapManagerExt lightMapManagerExt = (ILightMapManagerExt) (gameRenderer.getLightmapTextureManager());
         BufferProxy.updateWorldUniform(camera, viewMatrix, effectedViewMatrix, projectionMatrix,
-            overlayTextureID, fog, world, endSkyTextureID, endPortalTextureID);
+            overlayTextureID, fog, world, endSkyTextureID, endPortalTextureID,
+            lightMapManagerExt.radiance$getTextureId());
 
         // Sky
         float tickDelta = tickCounter.getTickDelta(false);
         float skyAngle = this.world.getSkyAngle(tickDelta);
-
-        int baseColor = this.world.getSkyColor(this.client.gameRenderer.getCamera().getPos(),
-            tickDelta);
-        float baseColorR = ColorHelper.getRedFloat(baseColor);
-        float baseColorG = ColorHelper.getGreenFloat(baseColor);
-        float baseColorB = ColorHelper.getBlueFloat(baseColor);
+        int baseColor = this.world.getSkyColor(camera.getPos(), tickDelta);
 
         DimensionEffects dimensionEffects = this.world.getDimensionEffects();
-        int horizontalColor = dimensionEffects.getSkyColor(skyAngle);
-        float horizontalColorR = ColorHelper.getRedFloat(horizontalColor);
-        float horizontalColorG = ColorHelper.getGreenFloat(horizontalColor);
-        float horizontalColorB = ColorHelper.getBlueFloat(horizontalColor);
-        float horizontalColorA = ColorHelper.getAlphaFloat(horizontalColor);
+        int horizonColor = dimensionEffects.getSkyColor(skyAngle);
 
         MatrixStack matrixStack = new MatrixStack();
         matrixStack.push();
@@ -275,12 +268,6 @@ public abstract class WorldRendererMixins {
         Vector3f sunDirection = rotationMatrix.transformPosition(0, 1, 0, new Vector3f())
             .normalize();
         matrixStack.pop();
-
-        int skyType = dimensionEffects.getSkyType().ordinal();
-
-        boolean sunRisingOrSetting = dimensionEffects.isSunRisingOrSetting(skyAngle);
-
-        boolean skyDark = this.isSkyDark(tickDelta);
 
         boolean hasBlindnessOrDarkness = this.hasBlindnessOrDarkness(camera);
 
@@ -294,23 +281,15 @@ public abstract class WorldRendererMixins {
 
         int moonTextureID = textureManager.getTexture(SkyRendering.MOON_PHASES_TEXTURE).getGlId();
 
-        BufferProxy.updateSkyUniform(baseColorR, baseColorG, baseColorB, horizontalColorR,
-            horizontalColorG, horizontalColorB, horizontalColorA, sunDirection, skyType,
-            sunRisingOrSetting, skyDark, hasBlindnessOrDarkness, submersionType, moonPhase,
+        BufferProxy.updateSkyUniform(ColorHelper.getRedFloat(baseColor),
+            ColorHelper.getGreenFloat(baseColor), ColorHelper.getBlueFloat(baseColor),
+            ColorHelper.getRedFloat(horizonColor), ColorHelper.getGreenFloat(horizonColor),
+            ColorHelper.getBlueFloat(horizonColor), ColorHelper.getAlphaFloat(horizonColor), sunDirection,
+            dimensionEffects.getSkyType().ordinal(), dimensionEffects.isSunRisingOrSetting(skyAngle),
+            this.isSkyDark(tickDelta), hasBlindnessOrDarkness, submersionType, moonPhase,
             rainGradient, sunTextureID, moonTextureID);
 
         BufferProxy.updateMapping();
-
-        ILightMapManagerExt lightMapManagerExt = (ILightMapManagerExt) (gameRenderer.getLightmapTextureManager());
-        BufferProxy.updateLightMapUniform(lightMapManagerExt.radiance$getAmbientLightFactor(),
-            lightMapManagerExt.radiance$getSkyFactor(),
-            lightMapManagerExt.radiance$getBlockFactor(),
-            lightMapManagerExt.radiance$isUseBrightLightmap(),
-            lightMapManagerExt.radiance$getSkyLightColor(),
-            lightMapManagerExt.radiance$getNightVisionFactor(),
-            lightMapManagerExt.radiance$getDarknessScale(),
-            lightMapManagerExt.radiance$getDarkenWorldFactor(),
-            lightMapManagerExt.radiance$getBrightnessFactor());
 
         // Entities
         EntityProxy.queueEntitiesBuild(camera, renderedEntities, this.entityRenderDispatcher,
@@ -346,6 +325,7 @@ public abstract class WorldRendererMixins {
         }
 
         // Chunks
+        ChunkProxy.setStorage(chunks);
         ChunkProxy.rebuild(camera);
 
         this.renderedEntities.clear();

@@ -5,6 +5,7 @@ import static org.lwjgl.system.MemoryUtil.memAddress;
 
 import com.mojang.blaze3d.systems.VertexSorter;
 import com.radiance.client.constant.Constants;
+import com.radiance.client.option.Options;
 import com.radiance.client.proxy.vulkan.BufferProxy;
 import com.radiance.mixin_related.extensions.vulkan_render_integration.IChunkBuilderBuiltChunkExt;
 import com.radiance.mixin_related.extensions.vulkan_render_integration.IChunkBuilderExt;
@@ -21,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.BuiltBuffer;
+import net.minecraft.client.render.BuiltChunkStorage;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.chunk.BlockBufferAllocatorStorage;
@@ -51,9 +53,14 @@ public class ChunkProxy {
         }
     };
     private static final Map<Integer, ChunkBuilder.BuiltChunk> rebuildQueue = new ConcurrentHashMap<>();
+    private static final java.util.Set<Integer> forcedRebuildIndices = ConcurrentHashMap.newKeySet();
     private static final List<Future<?>> rebuildTasks = new ArrayList<>();
-    private static final int numNormalChunkRebuildThreads = 1;
+    private static BuiltChunkStorage currentStorage = null;
+    private static boolean pendingRebuildAll = false;
+    private static int numChunkRebuildThreads = getChunkRebuildThreadCount();
     private static final int numImportantChunkRebuildThreads = 1;
+    private static int numNormalChunkRebuildThreads = Math.max(1,
+        numChunkRebuildThreads - numImportantChunkRebuildThreads);
     private static final ExecutorService
         importantChunkRebuildExecutor =
         Executors.newFixedThreadPool(numImportantChunkRebuildThreads, r -> {
@@ -72,11 +79,40 @@ public class ChunkProxy {
             return thread;
         });
 
-    public static native void initNative(int numChunks);
+    public static native void initNative(int numChunks, int sizeX, int sizeY, int sizeZ,
+        int bottomSectionCoord);
 
-    public static void init(int numChunks) {
+    public static native void updateSectionPosNative(int sectionX, int sectionY, int sectionZ);
+
+    public static void init(int numChunks, int sizeX, int sizeY, int sizeZ,
+        int bottomSectionCoord) {
         clear();
-        initNative(numChunks);
+        initNative(numChunks, sizeX, sizeY, sizeZ, bottomSectionCoord);
+    }
+
+    public static void updateSectionPos(ChunkSectionPos sectionPos) {
+        updateSectionPosNative(sectionPos.getSectionX(), sectionPos.getSectionY(),
+            sectionPos.getSectionZ());
+    }
+
+    public static void setStorage(BuiltChunkStorage storage) {
+        currentStorage = storage;
+        if (currentStorage != null && pendingRebuildAll) {
+            pendingRebuildAll = false;
+            queueRebuildAll(currentStorage);
+        }
+    }
+
+    private static int getChunkRebuildThreadCount() {
+        int expectedBufferTotal = RenderLayer.getBlockLayers()
+            .stream()
+            .mapToInt(RenderLayer::getExpectedBufferSize)
+            .sum();
+        int memoryLimited = Math.max(1,
+            (int) (Runtime.getRuntime().maxMemory() * 0.3) / (expectedBufferTotal * 4) - 1);
+        int userThreads = Options.chunkBuildingThreads;
+        return Math.max(2,
+            Math.min(userThreads, Math.min(Options.getMaxChunkBuildingThreads(), memoryLimited)));
     }
 
     public static AutoCloseable scopedBlockBufferAllocatorStorage() {
@@ -94,6 +130,9 @@ public class ChunkProxy {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
+        numChunkRebuildThreads = getChunkRebuildThreadCount();
+        numNormalChunkRebuildThreads = Math.max(1,
+            numChunkRebuildThreads - numImportantChunkRebuildThreads);
         backgroundChunkRebuildExecutor = Executors.newFixedThreadPool(numNormalChunkRebuildThreads,
             r -> {
                 Thread thread = new Thread(r);
@@ -102,18 +141,47 @@ public class ChunkProxy {
             });
 
         rebuildQueue.clear();
+        forcedRebuildIndices.clear();
         rebuildTasks.clear();
+        currentStorage = null;
+        pendingRebuildAll = false;
     }
 
     public static void enqueueRebuild(ChunkBuilder.BuiltChunk chunk) {
         rebuildQueue.put(chunk.index, chunk);
     }
 
+    public static void rebuildAll() {
+        if (currentStorage == null || currentStorage.chunks == null) {
+            pendingRebuildAll = true;
+            return;
+        }
+
+        queueRebuildAll(currentStorage);
+    }
+
+    private static void queueRebuildAll(BuiltChunkStorage storage) {
+        if (storage == null || storage.chunks == null) {
+            pendingRebuildAll = true;
+            return;
+        }
+
+        for (ChunkBuilder.BuiltChunk builtChunk : storage.chunks) {
+            if (builtChunk == null) {
+                continue;
+            }
+            forcedRebuildIndices.add(builtChunk.index);
+            builtChunk.scheduleRebuild(true);
+            enqueueRebuild(builtChunk);
+        }
+    }
+
     public static void rebuild(Camera camera) {
 
         BlockPos blockPos = camera.getBlockPos();
         for (ChunkBuilder.BuiltChunk builtChunk : rebuildQueue.values()) {
-            if (builtChunk.needsRebuild() && builtChunk.shouldBuild()) {
+            boolean forced = forcedRebuildIndices.remove(builtChunk.index);
+            if (builtChunk.needsRebuild() && (forced || builtChunk.shouldBuild())) {
                 builtChunk.cancelRebuild();
 
                 BlockPos
@@ -200,12 +268,9 @@ public class ChunkProxy {
                 (float) (vec3d.z - builtChunk.getOrigin()
                     .getZ()));
 
-        SectionBuilder.RenderData renderData;
-        synchronized (ChunkBuilder.class) {
-            renderData =
-                ((IChunkBuilderExt) chunkBuilder).radiance$getSectionBuilder()
-                    .build(chunkSectionPos, chunkRendererRegion, vertexSorter, storage);
-        }
+        SectionBuilder.RenderData renderData =
+            ((IChunkBuilderExt) chunkBuilder).radiance$getSectionBuilder()
+                .build(chunkSectionPos, chunkRendererRegion, vertexSorter, storage);
 
         Map<RenderLayer, BuiltBuffer> buffers = renderData.buffers;
         builtChunk.setNoCullingBlockEntities(renderData.noCullingBlockEntities);
@@ -245,7 +310,7 @@ public class ChunkProxy {
 
                 @Override
                 public boolean isEmpty(RenderLayer layer) {
-                    return false;
+                    return layer == null || !buffers.containsKey(layer);
                 }
             };
             builtChunk.data.set(chunkData);
@@ -408,6 +473,8 @@ public class ChunkProxy {
     public static boolean isChunkReady(ChunkBuilder.BuiltChunk builtChunk) {
         return isChunkReady(builtChunk.index);
     }
+
+    public static native void relocateSingle(long index, int originX, int originY, int originZ);
 
     public static native void invalidateSingle(long index);
 }
