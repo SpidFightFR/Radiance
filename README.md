@@ -1,3 +1,50 @@
+<p align="center">
+  <img src="./.assets/logo.png" alt="Radiance Logo" width="200">
+</p>
+
+<h1 align="center">
+  Radiance
+  <br>
+
+  <a href="https://github.com/Minecraft-Radiance/Radiance">
+    <img src="https://img.shields.io/github/stars/Minecraft-Radiance/Radiance?style=flat&logo=github" alt="GitHub Stars">
+  </a>
+
+  <a href="https://discord.gg/y4Uzf6acqk">
+    <img src="https://img.shields.io/badge/Discord-Join-5865F2?style=flat&logo=discord&logoColor=white" alt="Discord">
+  </a>
+
+  <a href="https://modrinth.com/mod/radiance-mod-windows">
+    <img src="https://img.shields.io/badge/Modrinth-Windows-5CA424?style=flat&logo=modrinth&logoColor=white" alt="Modrinth Windows">
+  </a>
+
+  <a href="https://modrinth.com/mod/radiance-mod-linux">
+    <img src="https://img.shields.io/badge/Modrinth-Linux-5CA424?style=flat&logo=modrinth&logoColor=white" alt="Modrinth Linux">
+  </a>
+
+  <a href="https://www.curseforge.com/minecraft/mc-mods/radiance">
+  <img src="https://img.shields.io/badge/CurseForge-Download-F16436?style=flat&logo=curseforge&logoColor=white" alt="CurseForge">
+  </a>
+
+  <a href="https://github.com/Minecraft-Radiance/Radiance/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/Minecraft-Radiance/Radiance?style=flat" alt="License">
+  </a>
+
+  <a href="https://github.com/Minecraft-Radiance/Radiance/releases">
+    <img src="https://img.shields.io/github/v/release/Minecraft-Radiance/Radiance?style=flat&logo=github" alt="GitHub Release">
+  </a>
+
+  <a href="https://www.youtube.com/@RadianceMod">
+    <img src="https://img.shields.io/badge/YouTube-Subscribe-FF0000?style=flat&logo=youtube&logoColor=white" alt="YouTube">
+  </a>
+
+  <a href="https://b23.tv/bN7CTv1">
+    <img src="https://img.shields.io/badge/Bilibili-Follow-00A1D6?style=flat&logo=bilibili&logoColor=white" alt="Bilibili">
+  </a>
+
+  <br><br>
+</h1>
+
 | English | [简体中文](https://github.com/Minecraft-Radiance/Radiance/blob/main/README-CN.md) |
 
 > This is the Java part of the Radiance mod. For C++ part, please refer to [Minecraft Vulkan Renderer (MCVR)](https://github.com/Minecraft-Radiance/MCVR)
