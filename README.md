@@ -26,12 +26,12 @@
   <img src="https://img.shields.io/badge/CurseForge-Download-F16436?style=flat&logo=curseforge&logoColor=white" alt="CurseForge">
   </a>
 
-  <a href="https://github.com/Minecraft-Radiance/Radiance/blob/main/LICENSE">
+  <a href="https://github.com/Minecraft-Radiance/Radiance/blob/main/LICENCE">
     <img src="https://img.shields.io/github/license/Minecraft-Radiance/Radiance?style=flat" alt="License">
   </a>
 
   <a href="https://github.com/Minecraft-Radiance/Radiance/releases">
-    <img src="https://img.shields.io/github/v/release/Minecraft-Radiance/Radiance?style=flat&logo=github" alt="GitHub Release">
+    <img src="https://img.shields.io/github/v/release/Minecraft-Radiance/Radiance?include_prereleases&label=Release&style=flat&logo=github&v=1" alt="GitHub Release">
   </a>
 
   <a href="https://www.youtube.com/@RadianceMod">
